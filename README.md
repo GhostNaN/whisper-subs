@@ -31,8 +31,9 @@ Things like:
 
 Also modifying the CHUNK_SIZE is a good idea. This will always be a balancing act. Because how whisper works, sometimes when music is playing whisper will just give up at creating more subtitles. But, this behavior is only until the end of the process chunk. What this means is that having a lower CHUNK_SIZE will lead to less of this terrible whisper behavior. Although if the CHUNK_SIZE is too low the model won't be able to keep up AND the subs will overlap a lot more. A CHUNK_SIZE too large will lead to slow first initial subtitles creation and the previous "whisper giving up" behavior for a longer period of time.
 
-I found that 10000ms(10 secs) is the sweet spot in my testing.
+I found that 15000ms(15 secs) is the sweet spot in my testing.
 
+You might also might want to toggle on SHOW_PROGRESS to see if it's keeping a good pace.
 The other variables like TMP_WAV_PATH, TMP_SUB_PATH, TMP_STREAM_PATH, WAV_CHUNK_SIZE, INIT_POS you can leave as is.
 
 
