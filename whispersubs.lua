@@ -1,14 +1,13 @@
 local TMP_WAV_PATH = "/tmp/mpv_whisper_tmp_wav.wav"
 local TMP_SUB_PATH = "/tmp/mpv_whisper_tmp_sub" -- without file ext "srt"
 local TMP_STREAM_PATH = "/tmp/mpv_whisper_tmp_stream"
-local WHISPER_CMD = "whisper.cpp-medium --threads 10 --max-len 40 --language en --output-srt"
-local CHUNK_SIZE = 10 * 1000 -- the amount of subs to process at a time in ms
+local WHISPER_CMD = "whisper.cpp-medium --threads 10 --max-len 60 --language en"
+local CHUNK_SIZE = 15 * 1000 -- the amount of subs to process at a time in ms
 local WAV_CHUNK_SIZE = CHUNK_SIZE + 1000
 local INIT_POS = 0 -- starting position to start creating subs in ms
+local SHOW_PROGRESS = false
 
 local running = false
-
-
 local stream_cmd
 local stream_process
 local stream_downloaded = false
@@ -57,7 +56,7 @@ end
 
 local function appendSubs(current_pos)
 
-	os.execute(WHISPER_CMD..' -d '..CHUNK_SIZE..' -f '..TMP_WAV_PATH..' -of '..TMP_SUB_PATH..'_append', 'r')
+	os.execute(WHISPER_CMD..' --output-srt -d '..CHUNK_SIZE..' -f '..TMP_WAV_PATH..' -of '..TMP_SUB_PATH..'_append', 'r')
 
 	-- offset srt timings to current_pos
 	os.execute('ffmpeg -hide_banner -loglevel error -itsoffset '..current_pos..'ms -i '..TMP_SUB_PATH..'_append.srt'..' -c copy -y '..TMP_SUB_PATH..'_append_offset.srt', 'r')
@@ -65,7 +64,9 @@ local function appendSubs(current_pos)
 	-- Append subs manually because whisper won't
 	os.execute('cat '..TMP_SUB_PATH..'_append_offset.srt'..' >> '..TMP_SUB_PATH..'.srt', 'r')
 
-	mp.commandv('show-text','Whisper Subtitles: '..formatProgress(current_pos))
+	if SHOW_PROGRESS then
+		mp.commandv('show-text','Whisper Subtitles: '..formatProgress(current_pos))
+	end
 
 	mp.command('sub-reload')
 
@@ -78,7 +79,7 @@ local function createSubs(current_pos)
 
 	mp.commandv('show-text','Whisper Subtitles: Generating initial subtitles')
 
-	local handle = io.popen(WHISPER_CMD..' -d '..CHUNK_SIZE..' -f '..TMP_WAV_PATH..' -of '..TMP_SUB_PATH, 'r')
+	local handle = io.popen(WHISPER_CMD..' --output-srt -d '..CHUNK_SIZE..' -f '..TMP_WAV_PATH..' -of '..TMP_SUB_PATH, 'r')
 	local output = handle:read('*all')
 	handle:close()
 
@@ -162,7 +163,7 @@ local function whispSubs(media_path, file_length, current_pos, is_stream)
 				cleanup()
 
 			else
-				mp.commandv('show-text', 'Whisper Subtitles: Subtitles finished processing')
+				mp.commandv('show-text', 'Whisper Subtitles: Subtitles finished processing', 3000)
 			end
 		end
 	end
