@@ -1,10 +1,11 @@
 local TMP_WAV_PATH = "/tmp/mpv_whisper_tmp_wav.wav"
 local TMP_SUB_PATH = "/tmp/mpv_whisper_tmp_sub" -- without file ext "srt"
 local TMP_STREAM_PATH = "/tmp/mpv_whisper_tmp_stream"
-local WHISPER_CMD = "whisper.cpp-medium --threads 10 --max-len 60 --language en"
+local WHISPER_CMD = "whisper.cpp -m /models/ggml/whisper-ggml-medium.bin --threads 6 --language en"
 local CHUNK_SIZE = 15 * 1000 -- the amount of subs to process at a time in ms
 local WAV_CHUNK_SIZE = CHUNK_SIZE + 1000
 local INIT_POS = 0 -- starting position to start creating subs in ms
+local STREAM_TIMEOUT = 15 -- timeout for init stream to start
 local SHOW_PROGRESS = false
 
 local running = false
@@ -33,6 +34,7 @@ local function cleanup()
 	os.execute('rm '..TMP_STREAM_PATH..'*', 'r')
 end
 
+
 local function stop()
 
 	if stream_process then
@@ -48,7 +50,7 @@ local function saveSubs(media_path)
 	local sub_path = media_path:match("(.+)%..+$") -- remove file ext from media
 	sub_path = sub_path..'.srt'..'"' -- add the file ext back with the "
 
-	mp.commandv('show-text', 'Subtitles finished processing: saving to'..sub_path, 3000)
+	mp.commandv('show-text', 'Subtitles finished processing: saving to'..sub_path, 5000)
 
 	os.execute('cp '..TMP_SUB_PATH..'.srt '..sub_path, 'r')
 end
@@ -74,18 +76,15 @@ local function appendSubs(current_pos)
 end
 
 
-
 local function createSubs(current_pos)
 
 	mp.commandv('show-text','Whisper Subtitles: Generating initial subtitles')
 
-	local handle = io.popen(WHISPER_CMD..' --output-srt -d '..CHUNK_SIZE..' -f '..TMP_WAV_PATH..' -of '..TMP_SUB_PATH, 'r')
-	local output = handle:read('*all')
-	handle:close()
+	current_pos = appendSubs(current_pos)
 
 	mp.commandv('sub-add', TMP_SUB_PATH..'.srt')
 
-	return current_pos + CHUNK_SIZE
+	return current_pos
 end
 
 
@@ -110,6 +109,28 @@ local function createWAV(media_path, current_pos)
 end
 
 
+-- Check if the length of the wave file is long enough to be processed by CHUNK_SIZE
+-- This is only really a streaming issue that is still downloading
+local function isWavLongEnough(current_pos)
+
+	local handle = io.popen("ffprobe -i "..TMP_WAV_PATH.." -show_format -v quiet | sed -n 's/duration=//p'", 'r')
+	local output = handle:read('*all')
+	handle:close()
+
+	local duration = tonumber(output)
+
+	if duration then
+		if duration*1000 >= CHUNK_SIZE then
+			return true;
+		end
+	end
+
+	mp.commandv('show-text','Whisper Subtitles: Waiting for more stream to download', 3000)
+	return false
+
+end
+
+
 -- Check if stream is still not zombie
 local function checkStreamStatus()
 
@@ -127,9 +148,10 @@ local function checkStreamStatus()
 	end
 end
 
+
 local function startStream(stream_path)
 
-	stream_cmd = 'yt-dlp --no-part -r 2M -x -o '..TMP_STREAM_PATH..' '..stream_path
+	stream_cmd = 'yt-dlp --no-part -r 10M -x -o '..TMP_STREAM_PATH..' '..stream_path
 	stream_process = io.popen(stream_cmd)
 
 	mp.commandv('show-text','Whisper Subtitles: Stream download started')
@@ -139,29 +161,35 @@ end
 local function whispSubs(media_path, file_length, current_pos, is_stream)
 
 	if running then
-		if (current_pos < file_length) then
+		-- Towards the of the file lets just process the time left if smaller than CHUNK_SIZE
+		local time_left = file_length - current_pos
+		if (time_left < CHUNK_SIZE) then
+			CHUNK_SIZE = time_left
+		end
 
-			if not stream_downloaded or not is_stream then
-				if (createWAV(media_path, current_pos)) then
-					current_pos = appendSubs(current_pos)
-				end
-			else -- After the stream is downloaded we won't know the file ext so we add a * wildcard'
-				if (createWAV(media_path..'*', current_pos)) then
+		if (time_left > 0) then
+
+			if (createWAV(media_path..'*', current_pos)) then
+
+				if is_stream and not stream_downloaded then
+					checkStreamStatus()
+
+					if (isWavLongEnough(current_pos)) then
+						current_pos = appendSubs(current_pos)
+					else  -- Wait longer for stream
+						os.execute('sleep 1')
+					end
+				else
 					current_pos = appendSubs(current_pos)
 				end
 			end
 
-
-			if is_stream then
-				checkStreamStatus()
-			end
-			--Callback
+			-- Callback
 			mp.add_timeout(0.1, function() whispSubs(media_path, file_length, current_pos, is_stream) end)
 		else
 			if not is_stream then
 				saveSubs(media_path)
 				cleanup()
-
 			else
 				mp.commandv('show-text', 'Whisper Subtitles: Subtitles finished processing', 3000)
 			end
@@ -176,9 +204,15 @@ local function run()
 	--init vars
 	local media_path = mp.get_property('path')
 	media_path = '"'..media_path..'"' -- fix spaces
-	local file_length = mp.get_property_number('playtime-remaining') * 1000
+	local file_length = mp.get_property_number('duration/full') * 1000
 	local current_pos = INIT_POS
 	stream_process = nil
+
+	-- In the rare case that the media is less than CHUNK_SIZE
+	local time_left = file_length - current_pos
+	if (time_left < CHUNK_SIZE) then
+		CHUNK_SIZE = time_left
+	end
 
 	-- Determine if media is a stream
 	if mp.get_property('demuxer-via-network') == 'yes' then
@@ -186,17 +220,18 @@ local function run()
 		stream_downloaded = false
 		startStream(media_path)
 
-		-- wait 15 secs for first wav to be created
+		-- Wait for stream to get long enough
 		local wav_created = false
-		local stream_paths = {TMP_STREAM_PATH, TMP_STREAM_PATH..'*'}
-		for i=0,15,1 do
-			wav_created = createWAV(stream_paths[(i%2)+1], current_pos)
+		for i=0,STREAM_TIMEOUT,1 do
+			wav_created = createWAV(TMP_STREAM_PATH..'*', current_pos)
 
-			if wav_created then break end
+			if wav_created then
+				if (isWavLongEnough(current_pos)) then break end
+			end
 			os.execute('sleep 1')
 		end
-		if not wav_created then
-			mp.commandv('show-text', 'Whisper Subtitles: Failed to create a wave file from stream in 15 seconds', 5000)
+		if not wav_created or not (isWavLongEnough(current_pos)) then
+			mp.commandv('show-text', 'Whisper Subtitles: Timed out waiting for stream for '..STREAM_TIMEOUT..' seconds', 5000)
 			stop()
 			return
 		end
