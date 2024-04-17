@@ -67,7 +67,7 @@ local function appendSubs(current_pos)
 	os.execute('cat '..TMP_SUB_PATH..'_append_offset.srt'..' >> '..TMP_SUB_PATH..'.srt', 'r')
 
 	if SHOW_PROGRESS then
-		mp.commandv('show-text','Whisper Subtitles: '..formatProgress(current_pos))
+		mp.commandv('show-text','Whisper Subtitles: '..formatProgress(current_pos + CHUNK_SIZE))
 	end
 
 	mp.command('sub-reload')
