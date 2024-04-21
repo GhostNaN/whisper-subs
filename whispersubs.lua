@@ -1,12 +1,16 @@
+-- These are just some temp files in order to process the subs
 local TMP_WAV_PATH = "/tmp/mpv_whisper_tmp_wav.wav"
 local TMP_SUB_PATH = "/tmp/mpv_whisper_tmp_sub" -- without file ext "srt"
 local TMP_STREAM_PATH = "/tmp/mpv_whisper_tmp_stream"
-local WHISPER_CMD = "whisper.cpp -m /models/ggml/whisper-ggml-medium.bin --threads 6 --language en"
+-- This is the main variable you will want to modify
+-- It's just the main whisper.cpp example command-line interface
+-- Set things like the model location and other things, just avoid setting any input or output options
+local WHISPER_CMD = "/models/whisper.cpp/main -m /models/whisper-ggml-medium.bin --threads 6 --language en"
 local CHUNK_SIZE = 15 * 1000 -- the amount of subs to process at a time in ms
-local WAV_CHUNK_SIZE = CHUNK_SIZE + 1000
+local WAV_CHUNK_SIZE = CHUNK_SIZE + 1000 -- pad the wav time
 local INIT_POS = 0 -- starting position to start creating subs in ms
 local STREAM_TIMEOUT = 15 -- timeout for init stream to start
-local SHOW_PROGRESS = false
+local SHOW_PROGRESS = false -- visual aid to see where it's still processing subtitles
 
 local running = false
 local stream_cmd
