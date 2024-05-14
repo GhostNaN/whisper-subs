@@ -162,7 +162,7 @@ local function startStream(stream_path)
 end
 
 
-local function whispSubs(media_path, file_length, current_pos, is_stream)
+local function runStream(file_length, current_pos)
 
 	if running then
 		-- Towards the of the file lets just process the time left if smaller than CHUNK_SIZE
@@ -173,9 +173,9 @@ local function whispSubs(media_path, file_length, current_pos, is_stream)
 
 		if (time_left > 0) then
 
-			if (createWAV(media_path..'*', current_pos)) then
+			if (createWAV(TMP_STREAM_PATH..'*', current_pos)) then
 
-				if is_stream and not stream_downloaded then
+				if not stream_downloaded then
 					checkStreamStatus()
 
 					if (isWavLongEnough(current_pos)) then
@@ -189,21 +189,41 @@ local function whispSubs(media_path, file_length, current_pos, is_stream)
 			end
 
 			-- Callback
-			mp.add_timeout(0.1, function() whispSubs(media_path, file_length, current_pos, is_stream) end)
+			mp.add_timeout(0.1, function() runStream(file_length, current_pos) end)
 		else
-			if not is_stream then
-				saveSubs(media_path)
-				cleanup()
-			else
-				mp.commandv('show-text', 'Whisper Subtitles: Subtitles finished processing', 3000)
+			mp.commandv('show-text', 'Whisper Subtitles: Subtitles finished processing', 3000)
+		end
+	end
+end
+
+
+local function runLocal(media_path, file_length, current_pos)
+
+	if running then
+		-- Towards the of the file lets just process the time left if smaller than CHUNK_SIZE
+		local time_left = file_length - current_pos
+		if (time_left < CHUNK_SIZE) then
+			CHUNK_SIZE = time_left
+		end
+
+		if (time_left > 0) then
+
+			if (createWAV(media_path..'*', current_pos)) then
+				current_pos = appendSubs(current_pos)
 			end
+
+			-- Callback
+			mp.add_timeout(0.1, function() runLocal(media_path, file_length, current_pos) end)
+		else
+			saveSubs(media_path)
+			cleanup()
 		end
 	end
 end
 
 
 
-local function run()
+local function start()
 
 	--init vars
 	local media_path = mp.get_property('path')
@@ -242,11 +262,11 @@ local function run()
 
 		current_pos = createSubs(current_pos)
 
-		mp.add_timeout(0.1, function() whispSubs(TMP_STREAM_PATH, file_length, current_pos, true) end)
+		mp.add_timeout(0.1, function() runStream(file_length, current_pos) end)
 	else
 		createWAV(media_path, current_pos)
 		current_pos = createSubs(current_pos)
-		mp.add_timeout(0.1, function() whispSubs(media_path, file_length, current_pos, false) end)
+		mp.add_timeout(0.1, function() runLocal(media_path, file_length, current_pos) end)
 	end
 end
 
@@ -255,7 +275,7 @@ local function toggle()
 	if running then
 		running = false
 		mp.commandv('show-text', 'Whisper subtitles: no')
-		mp.unregister_event("start-file", run)
+		mp.unregister_event("start-file", start)
 		mp.unregister_event('end-file', stop)
 
 		stop()
@@ -263,10 +283,10 @@ local function toggle()
 	else
 		running = true
 		mp.commandv('show-text', 'Whisper subtitles: yes')
-		mp.register_event("start-file", run)
+		mp.register_event("start-file", start)
 		mp.register_event('end-file', stop)
 
-		run()
+		start()
 	end
 
 end
