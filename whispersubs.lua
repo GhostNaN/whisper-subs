@@ -5,7 +5,7 @@ local TMP_STREAM_PATH = "/tmp/mpv_whisper_tmp_stream"
 -- This is the main variable you will want to modify
 -- It's just the main whisper.cpp example command-line interface
 -- Set things like the model location and other things, just avoid setting any input or output options
-local WHISPER_CMD = "/models/whisper.cpp/main -m /models/whisper-ggml-medium.bin --threads 6 --language en"
+local WHISPER_CMD = "whisper-cli -m /models/whisper-ggml-medium.bin --threads 6 --language en --no-prints"
 local CHUNK_SIZE = 15 * 1000 -- the amount of subs to process at a time in ms
 local WAV_CHUNK_SIZE = CHUNK_SIZE + 1000 -- pad the wav time
 local INIT_POS = 0 -- starting position to start creating subs in ms
