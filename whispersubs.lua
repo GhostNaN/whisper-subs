@@ -41,6 +41,8 @@ end
 
 
 local function stop()
+	running = false
+	mp.unregister_event(stop)
 
 	if stream_process then
 		stream_process:close()
@@ -222,7 +224,7 @@ local function runLocal(media_path, file_length, current_pos)
 				mp.commandv('show-text', 'Subtitles finished processing')
 			end
 
-			cleanup()
+			stop()
 		end
 	end
 end
@@ -280,17 +282,13 @@ end
 local function toggle()
 
 	if running then
-		running = false
 		mp.commandv('show-text', 'Whisper subtitles: no')
-		mp.unregister_event("start-file", start)
-		mp.unregister_event('end-file', stop)
 
 		stop()
 
 	else
 		running = true
 		mp.commandv('show-text', 'Whisper subtitles: yes')
-		mp.register_event("start-file", start)
 		mp.register_event('end-file', stop)
 
 		start()
