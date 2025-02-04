@@ -11,6 +11,7 @@ local WAV_CHUNK_SIZE = CHUNK_SIZE + 1000 -- pad the wav time
 local INIT_POS = 0 -- starting position to start creating subs in ms
 local STREAM_TIMEOUT = 15 -- timeout for init stream to start
 local SHOW_PROGRESS = false -- visual aid to see where it's still processing subtitles
+local SAVE_SRT = true -- save srt file when finished processing
 
 local running = false
 local stream_cmd
@@ -215,7 +216,12 @@ local function runLocal(media_path, file_length, current_pos)
 			-- Callback
 			mp.add_timeout(0.1, function() runLocal(media_path, file_length, current_pos) end)
 		else
-			saveSubs(media_path)
+			if SAVE_SRT then
+				saveSubs(media_path)
+			else
+				mp.commandv('show-text', 'Subtitles finished processing')
+			end
+
 			cleanup()
 		end
 	end
