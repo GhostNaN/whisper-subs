@@ -63,7 +63,7 @@ end
 
 local function appendSubs(current_pos)
 
-	os.execute(WHISPER_CMD..' --output-srt -d '..CHUNK_SIZE..' -f '..TMP_WAV_PATH..' -of '..TMP_SUB_PATH..'_append', 'r')
+	os.execute(WHISPER_CMD..' --output-srt -d '..chunk_dur..' -f '..TMP_WAV_PATH..' -of '..TMP_SUB_PATH..'_append', 'r')
 
 	-- offset srt timings to current_pos
 	os.execute('ffmpeg -hide_banner -loglevel error -itsoffset '..current_pos..'ms -i '..TMP_SUB_PATH..'_append.srt'..' -c copy -y '..TMP_SUB_PATH..'_append_offset.srt', 'r')
@@ -72,12 +72,12 @@ local function appendSubs(current_pos)
 	os.execute('cat '..TMP_SUB_PATH..'_append_offset.srt'..' >> '..TMP_SUB_PATH..'.srt', 'r')
 
 	if SHOW_PROGRESS then
-		mp.commandv('show-text','Whisper Subtitles: '..formatProgress(current_pos + CHUNK_SIZE))
+		mp.commandv('show-text','Whisper Subtitles: '..formatProgress(current_pos + chunk_dur))
 	end
 
 	mp.command('sub-reload')
 
-	return current_pos + CHUNK_SIZE
+	return current_pos + chunk_dur
 end
 
 
@@ -169,7 +169,7 @@ local function runStream(file_length, current_pos)
 		-- Towards the of the file lets just process the time left if smaller than CHUNK_SIZE
 		local time_left = file_length - current_pos
 		if (time_left < CHUNK_SIZE) then
-			CHUNK_SIZE = time_left
+			chunk_dur = time_left
 		end
 
 		if (time_left > 0) then
@@ -204,7 +204,7 @@ local function runLocal(media_path, file_length, current_pos)
 		-- Towards the of the file lets just process the time left if smaller than CHUNK_SIZE
 		local time_left = file_length - current_pos
 		if (time_left < CHUNK_SIZE) then
-			CHUNK_SIZE = time_left
+			chunk_dur = time_left
 		end
 
 		if (time_left > 0) then
@@ -236,12 +236,13 @@ local function start()
 	media_path = '"'..media_path..'"' -- fix spaces
 	local file_length = mp.get_property_number('duration/full') * 1000
 	local current_pos = INIT_POS
+	chunk_dur = CHUNK_SIZE
 	stream_process = nil
 
 	-- In the rare case that the media is less than CHUNK_SIZE
 	local time_left = file_length - current_pos
 	if (time_left < CHUNK_SIZE) then
-		CHUNK_SIZE = time_left
+		chunk_dur = time_left
 	end
 
 	-- Determine if media is a stream
