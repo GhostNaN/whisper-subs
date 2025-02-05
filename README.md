@@ -22,7 +22,7 @@ See here for the script folder location: https://mpv.io/manual/stable/#script-lo
 
 ## Usage
 
-To toggle just use the <kbd>Ctrl + .<kbd> shortcut key.
+To toggle just use the <kbd>Ctrl + .</kbd> shortcut key.
 
 ### BUT FIRST
 
