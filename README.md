@@ -12,7 +12,6 @@ https://github.com/ggerganov/whisper.cpp/tree/master/examples/cli
 
 - [whisper.cpp](https://github.com/ggerganov/whisper.cpp)
 - [ffmpeg](https://ffmpeg.org/)
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp)  (If streaming)
 
 ## Installation
 
