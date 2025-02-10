@@ -9,6 +9,9 @@ local START_AT_ZERO = true		 -- start creating subs from 00:00:00 rather than th
 local SAVE_SRT = true			 -- save srt file when finished processing (local files only)
 local SHOW_PROGRESS = false		 -- visual aid to see where it's still processing subtitles
 
+-- Determine operating system
+local ON_WINDOWS = (package.config:sub(1,1) ~= '/')
+
 -- These are just some temp files in order to process the subs
 -- pid must be used in case multiple instances of the script are running at once
 local pid = mp.get_property_native('pid')
@@ -47,9 +50,15 @@ local function saveSubs(media_path)
 	local sub_path = media_path:match("(.+)%..+$") -- remove file ext from media
 	sub_path = sub_path..'.srt'..'"' -- add the file ext back with the "
 
-	mp.commandv('show-text', 'Whisper: Subtitles finished processing, saving to'..sub_path, 5000)
+	mp.commandv('show-text', 'Whisper: Subtitles finished processing, saving to '..sub_path, 5000)
 
-	os.execute('cp '..TMP_SUB_PATH..'.srt '..sub_path, 'r')
+	-- check os
+	local copy = 'cp'
+	if ON_WINDOWS then
+		copy = 'copy'
+	end
+
+	os.execute(copy..' '..TMP_SUB_PATH..'.srt '..sub_path, 'r')
 end
 
 local function appendSubs(current_pos)
@@ -58,8 +67,14 @@ local function appendSubs(current_pos)
 	-- offset srt timings to current_pos
 	os.execute('ffmpeg -hide_banner -loglevel error -itsoffset '..current_pos..'ms -i '..TMP_SUB_PATH..'_append.srt'..' -c copy -y '..TMP_SUB_PATH..'_append_offset.srt', 'r')
 
+	-- check os
+	local concat = 'cat'
+	if ON_WINDOWS then
+		concat = 'type'
+	end
+
 	-- Append subs manually because whisper won't
-	os.execute('cat '..TMP_SUB_PATH..'_append_offset.srt'..' >> '..TMP_SUB_PATH..'.srt', 'r')
+	os.execute(concat..' '..TMP_SUB_PATH..'_append_offset.srt'..' >> '..TMP_SUB_PATH..'.srt', 'r')
 
 	if SHOW_PROGRESS then
 		mp.commandv('show-text','Whisper: '..formatProgress(current_pos + chunk_dur))
