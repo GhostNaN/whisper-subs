@@ -12,12 +12,16 @@ local SHOW_PROGRESS = false		 -- visual aid to see where it's still processing s
 -- Determine operating system
 local ON_WINDOWS = (package.config:sub(1,1) ~= '/')
 
+-- Set directory for temp files
+local TMP_DIR = ON_WINDOWS and os.getenv('TEMP') or (os.getenv('TMP') or '/tmp/')
+
+-- Use pid to make temp files unique in case multiple instances of the script are running at once
+local PID = mp.get_property_native('pid')
+
 -- These are just some temp files in order to process the subs
--- pid must be used in case multiple instances of the script are running at once
-local pid = mp.get_property_native('pid')
-local TMP_WAV_PATH = "/tmp/mpv_whisper_tmp_wav_"..pid..".wav"
-local TMP_SUB_PATH = "/tmp/mpv_whisper_tmp_sub_"..pid -- without file ext "srt"
-local TMP_CACHE_PATH = "/tmp/mpv_whisper_tmp_cache_"..pid..".mkv"
+local TMP_WAV_PATH = TMP_DIR.."mpv_whisper_tmp_wav_"..PID..".wav"
+local TMP_SUB_PATH = TMP_DIR.."mpv_whisper_tmp_sub_"..PID -- without file ext "srt"
+local TMP_CACHE_PATH = TMP_DIR.."mpv_whisper_tmp_cache_"..PID..".mkv"
 
 local running = false
 local chunk_dur
