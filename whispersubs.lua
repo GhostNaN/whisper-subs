@@ -35,9 +35,11 @@ local function formatProgress(ms)
 end
 
 local function cleanup()
-	os.execute('rm '..TMP_WAV_PATH, 'r')
-	os.execute('rm '..TMP_SUB_PATH..'*', 'r')
-	os.execute('rm '..TMP_CACHE_PATH..'*', 'r')
+	os.remove(TMP_WAV_PATH)
+	os.remove(TMP_CACHE_PATH)
+	os.remove(TMP_SUB_PATH..'.srt')
+	os.remove(TMP_SUB_PATH..'_append.srt')
+	os.remove(TMP_SUB_PATH..'_append_offset.srt')
 end
 
 local function stop()
