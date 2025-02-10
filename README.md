@@ -1,6 +1,6 @@
 # WhisperSubs
 
-### WhisperSubs is a mpv lua script to generate subtitles at runtime with whisper.cpp on Linux
+### WhisperSubs is a mpv lua script to generate subtitles at runtime with whisper.cpp
 
 This is just a fun little side project I've been working on. So don't expect a flawless experience.
 
